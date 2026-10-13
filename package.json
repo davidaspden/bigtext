@@ -1,0 +1,18 @@
+{
+  "name": "blocktype-studio",
+  "version": "1.0.0",
+  "description": "Large text output generator using solid and faded blocks with 15-line character matrix, live redraw, spacing controls, line length limits, and test image tracing.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "ascii-art",
+    "block-text",
+    "text-generator",
+    "unicode-blocks",
+    "character-redraw"
+  ],
+  "author": "",
+  "license": "MIT"
+}

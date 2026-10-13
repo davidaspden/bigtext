@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLOCKTYPE STUDIO - Block & Faded Text Generator</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="logo-container">
+      <div class="logo-badge">█░▒</div>
+      <div class="logo-title">
+        <h1>BLOCKTYPE STUDIO <span class="version-pill" id="fontModeHeaderPill">HEIGHT 5–15 MATRIX</span></h1>
+        <div class="logo-subtitle">Large text generator using solid & faded blocks with flexible 5–15 glyph height & line gap</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <select id="themeSelect" class="theme-select" title="Change Theme">
+        <option value="default">Dark Slate</option>
+        <option value="matrix">Matrix Green</option>
+        <option value="amber">Retro Amber CRT</option>
+        <option value="light">Clean Light</option>
+      </select>
+
+      <button id="exportFontBtn" class="btn btn-secondary" title="Export custom font definitions as JSON">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Export Font
+      </button>
+
+      <button id="importFontBtn" class="btn btn-secondary" title="Import font definitions from JSON file">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Import Font
+      </button>
+      <input type="file" id="fontFileInput" accept=".json" style="display: none;">
+
+      <button id="resetAllFontsBtn" class="btn btn-danger btn-sm" title="Reset current height characters to factory defaults">
+        Reset Font
+      </button>
+
+      <button id="copyTopBtn" class="btn btn-primary" title="Copy generated output to clipboard">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+        Copy Output
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Workspace -->
+  <main class="app-container">
+    
+    <!-- LEFT PANEL: Text Input & Live Output Preview -->
+    <section class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>Input & Generator</span>
+          <span class="badge" id="terminalBudgetBadge">11 / 15 Lines Budget</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="clearInputBtn" class="btn btn-sm btn-secondary">Clear Text</button>
+        </div>
+      </div>
+
+      <!-- Text Input Area -->
+      <div class="input-group">
+        <div class="input-label-row">
+          <label for="textInput">Text To Generate (multi-line supported with Enter):</label>
+          <span id="charCountLabel" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">0 chars</span>
+        </div>
+        <textarea id="textInput" class="text-input-box" placeholder="Enter text here... Use Enter for multiple lines to test Line Gap!"></textarea>
+      </div>
+
+      <!-- Line Length Limit Controls -->
+      <div class="limit-bar-wrapper">
+        <div class="limit-stats">
+          <span>Block Width: <strong id="currentWidthStat">0</strong> / <strong id="maxWidthStat">65</strong> blocks</span>
+          <span id="limitStatusText" class="limit-status-safe">✓ Within Limit</span>
+        </div>
+        <div class="limit-progress-track">
+          <div id="limitProgressFill" class="limit-progress-fill"></div>
+        </div>
+        <div class="limit-controls-row">
+          <label title="Maximum allowed character width in blocks per line">
+            Max Line Limit: 
+            <input type="number" id="maxLineLimitInput" value="65" min="10" max="300" step="5">
+          </label>
+          <label title="Prevent adding more characters if limit is reached">
+            <input type="checkbox" id="enforceLimitCheck">
+            Enforce Limit
+          </label>
+          <label title="Automatically wrap words to next block row">
+            <input type="checkbox" id="autoWrapCheck" checked>
+            Auto-wrap words
+          </label>
+          <label title="Fill trailing space on each line with faded blocks up to the limit (as seen in test photo)">
+            <input type="checkbox" id="padToLimitCheck">
+            Pad to Limit (like photo)
+          </label>
+          <label title="Invert solid blocks and blanks in output text (negative cutout)">
+            <input type="checkbox" id="invertBlocksCheck">
+            Invert Blocks (Negative)
+          </label>
+        </div>
+      </div>
+
+      <!-- Spacing, Font Size & Background Styling Controls -->
+      <div class="controls-grid">
+        <!-- 1. Glyph Height (5 to 15 blocks tall!) -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span>Glyph Height:</span>
+            <span class="val" id="glyphHeightVal">5 lines</span>
+          </div>
+          <input type="range" id="glyphHeightRange" min="5" max="15" value="5" step="1">
+        </div>
+
+        <!-- 2. Data Line Gap: Block rows inserted in text -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span title="Data rows of blank/faded blocks inserted into the generated text between lines">Line Gap (Block Rows):</span>
+            <span class="val" id="lineGapVal">1 row</span>
+          </div>
+          <input type="range" id="lineGapRange" min="0" max="6" value="1" step="1">
+        </div>
+
+        <!-- 3. Inherent Display Line Gap: Hardware pre-programmed gap between blocks (0 to 20px) -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span title="Inherent pre-programmed display renderer gap between rows of blocks in the output system">Display Line Gap:</span>
+            <span class="val" id="rowGapVal">4 px</span>
+          </div>
+          <input type="range" id="rowGapRange" min="0" max="20" value="4" step="1">
+        </div>
+
+        <!-- 4. Letter Spacing -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span>Letter Spacing:</span>
+            <span class="val" id="letterSpacingVal">2 blocks</span>
+          </div>
+          <input type="range" id="letterSpacingRange" min="0" max="8" value="2" step="1">
+        </div>
+
+        <!-- 5. Blank / Fill Character (Hangul, Braille, Space, Shaded) -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span>Blank / Fill Char:</span>
+          </div>
+          <select id="bgFillerSelect" class="theme-select" style="width: 100%;">
+            <option value="⠀" selected>Braille Blank ⠀ (U+2800)</option>
+            <option value="ㅤ">Hangul Blank ㅤ (U+3164)</option>
+            <option value=" ">Standard Space (ASCII)</option>
+            <option value="░">Faded Blocks ░ (Like Photo)</option>
+            <option value="▒">Medium Blocks ▒</option>
+            <option value="▓">Dark Blocks ▓</option>
+          </select>
+        </div>
+
+        <!-- 6. Top Margin / Gap -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span>Top Margin / Gap:</span>
+            <span class="val" id="topMarginVal">0 rows</span>
+          </div>
+          <input type="range" id="topMarginRange" min="0" max="10" value="0" step="1">
+        </div>
+
+        <!-- 7. Preview Zoom -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span>Preview Zoom:</span>
+            <span class="val" id="zoomVal">12 px</span>
+          </div>
+          <input type="range" id="zoomRange" min="6" max="22" value="12" step="1">
+        </div>
+
+        <!-- 8. Text Color Mode (Black or White) -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span>Text Color:</span>
+          </div>
+          <select id="textColorSelect" class="theme-select" style="width: 100%;">
+            <option value="black" selected>⬛ Black Text (White Bg)</option>
+            <option value="white">⬜ White Text (Black Bg)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Live Output Preview -->
+      <div class="preview-panel-content">
+        <div class="preview-toolbar">
+          <div class="preview-stats-tag">
+            <span>Dimensions: <strong id="previewDims">0 × 11</strong></span>
+            <span>Terminal Height: <strong id="previewHeightLines">11 / 15 lines</strong></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <!-- White or Black Quick Toggle -->
+            <div class="color-toggle-pills" title="Toggle preview text color">
+              <button id="colorBlackBtn" class="pill-btn active" type="button">⬛ Black Text</button>
+              <button id="colorWhiteBtn" class="pill-btn" type="button">⬜ White Text</button>
+            </div>
+            <label style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              <input type="checkbox" id="showRowGutterCheck" checked>
+              Row Numbers
+            </label>
+            <label style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              <input type="checkbox" id="showHeadersCheck" checked>
+              Line Labels
+            </label>
+            <button id="downloadTxtBtn" class="btn btn-secondary btn-sm" title="Save preview as text file">
+              Download .TXT
+            </button>
+            <button id="copyPreviewBtn" class="btn btn-primary btn-sm" title="Copy to clipboard">
+              Copy Generated Text
+            </button>
+          </div>
+        </div>
+
+        <!-- Ruler showing column numbers -->
+        <div id="previewRuler" class="preview-ruler">0....|....10...|....20...|....30...|....40...|....50...|....60...|....70...|....80</div>
+
+        <!-- The actual preformatted text block container -->
+        <div class="preview-container" id="previewContainer">
+          <div class="preview-output" id="previewOutput"></div>
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- RIGHT PANEL: Custom Drawing Canvas & Character Redraw Editor -->
+    <section class="panel" id="rightPanel">
+      <div class="panel-header" style="padding-bottom: 8px;">
+        <div class="mode-toggle-pills">
+          <button id="tabCustomCanvas" class="mode-tab-btn active" type="button" title="Freeform pixel grid canvas up to 15 rows tall">
+            🎨 Custom Drawing Canvas (Max 15 Rows)
+          </button>
+          <button id="tabCharEditor" class="mode-tab-btn" type="button" title="Single character font editor and redraw">
+            🔤 Character Redraw & Font
+          </button>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button id="tabViewBoth" class="btn btn-secondary btn-sm" type="button" title="Show both Canvas and Character Editor stacked">
+            ⊞ View Both
+          </button>
+        </div>
+      </div>
+
+      <!-- VIEW 1: Custom Drawing Canvas -->
+      <div id="viewCustomCanvas" class="right-view-container">
+        <div class="custom-canvas-section" id="customCanvasSection">
+          <div class="canvas-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 700; color: var(--accent-cyan);">Canvas Grid</span>
+              <span class="badge" id="canvasDimsBadge">65 × 5 Grid</span>
+              <span id="canvasCoordBadge" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">Hover: - , -</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <button id="canvasLoadBannerBtn" class="btn btn-secondary btn-sm" title="Load the current generated banner into this canvas for custom pixel editing">
+                📥 Load Current Banner
+              </button>
+              <button id="canvasClearBtn" class="btn btn-secondary btn-sm" title="Clear all cells to blank for redraw">
+                ✏️ Redraw (Clear)
+              </button>
+              <button id="canvasDownloadBtn" class="btn btn-secondary btn-sm" title="Download drawing as .txt file">
+                Download .TXT
+              </button>
+              <button id="canvasCopyBtn" class="btn btn-primary btn-sm" title="Copy drawing as clean text to clipboard">
+                Copy Drawing
+              </button>
+            </div>
+          </div>
+
+          <div class="canvas-toolbar">
+            <!-- Width & Height controls -->
+            <div class="canvas-dim-group">
+              <label title="Width in blocks (variable)">
+                Width:
+                <input type="number" id="canvasWidthInput" min="5" max="120" value="65" style="width: 58px;">
+              </label>
+              <label title="Rows (Up to 15 max!)">
+                Rows (Max 15):
+                <input type="number" id="canvasHeightInput" min="1" max="15" value="5" style="width: 50px;">
+              </label>
+              <label title="Zoom / cell display size">
+                Cell Size:
+                <input type="range" id="canvasCellSizeRange" min="10" max="28" value="16" style="width: 70px;">
+                <span id="canvasCellSizeVal" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">16px</span>
+              </label>
+            </div>
+
+            <!-- Brushes for Canvas -->
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span style="color: var(--text-muted); font-size: 11px;">Brush:</span>
+              <button class="brush-btn canvas-brush-btn active" data-brush="█" type="button" title="Solid Block (█)">█</button>
+              <button class="brush-btn canvas-brush-btn" data-brush="▓" type="button" title="Dark Shade (▓)">▓</button>
+              <button class="brush-btn canvas-brush-btn" data-brush="▒" type="button" title="Medium Shade (▒)">▒</button>
+              <button class="brush-btn canvas-brush-btn" data-brush="░" type="button" title="Light Shade (░)">░</button>
+              <button class="brush-btn canvas-brush-btn" data-brush=" " type="button" title="Eraser / Blank (Right-click)">␣</button>
+            </div>
+
+            <!-- Transform tools -->
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button id="canvasShiftUp" class="tool-btn" type="button" title="Shift Canvas Up">▲</button>
+              <button id="canvasShiftDown" class="tool-btn" type="button" title="Shift Canvas Down">▼</button>
+              <button id="canvasShiftLeft" class="tool-btn" type="button" title="Shift Canvas Left">◀</button>
+              <button id="canvasShiftRight" class="tool-btn" type="button" title="Shift Canvas Right">▶</button>
+              <button id="canvasInvertBtn" class="tool-btn" type="button" title="Invert Canvas Blocks">☯</button>
+              <button id="canvasFlipHBtn" class="tool-btn" type="button" title="Flip Canvas Horizontally">⇄</button>
+              <button id="canvasFlipVBtn" class="tool-btn" type="button" title="Flip Canvas Vertically">⇅</button>
+            </div>
+          </div>
+
+          <!-- Scrollable Grid Container -->
+          <div class="canvas-scroll-container" id="canvasScrollContainer">
+            <div class="canvas-grid" id="canvasPixelGrid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: Character Editor -->
+      <div id="viewCharEditor" class="right-view-container" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 700;">Character Redraw</span>
+            <span class="badge" id="currentCharBadge">'A' (4×5)</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button id="redrawCharBtn" class="btn btn-secondary btn-sm" title="Clear all blocks to blank for this character so you can redraw from scratch">
+              ✏️ Redraw (Clear)
+            </button>
+            <button id="resetCharBtn" class="btn btn-secondary btn-sm" title="Reset this character to default">
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Character selection tabs & picker -->
+        <div class="char-selector-tabs">
+          <button class="tab-btn active" data-tab="required">Req Symbols (!£$%&@#/?. )</button>
+          <button class="tab-btn" data-tab="upper">Upper (A-Z)</button>
+          <button class="tab-btn" data-tab="lower">Lower (a-z)</button>
+          <button class="tab-btn" data-tab="digits">Digits (0-9)</button>
+          <button class="tab-btn" data-tab="all">All</button>
+        </div>
+
+        <!-- Interactive Character Grid Picker -->
+        <div class="char-grid-picker" id="charGridPicker">
+          <!-- populated dynamically by JS -->
+        </div>
+
+        <!-- Drawing Tool & Width Controls Bar -->
+        <div class="editor-tools-bar">
+          <div class="tool-brushes">
+            <button class="brush-btn active" data-brush="█" title="Solid Block (Key 1)">
+              <span>█</span> Solid
+            </button>
+            <button class="brush-btn" data-brush="▓" title="Dark Shade (Key 2)">
+              <span>▓</span> Dark
+            </button>
+            <button class="brush-btn" data-brush="▒" title="Medium Shade (Key 3)">
+              <span>▒</span> Med
+            </button>
+            <button class="brush-btn" data-brush="░" title="Light Shade (Key 4)">
+              <span>░</span> Light
+            </button>
+            <button class="brush-btn" data-brush=" " title="Eraser / Blank (Key 5)">
+              <span>⌫</span> Erase
+            </button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 11px; color: var(--text-muted);" title="Width in blocks across (1 to 5)">
+              Width:
+              <select id="charWidthSelect" class="theme-select">
+                <option value="1">1 col</option>
+                <option value="2">2 cols</option>
+                <option value="3">3 cols</option>
+                <option value="4" selected>4 cols</option>
+                <option value="5">5 cols (Max)</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <!-- Action buttons: Shift, Invert, Flip -->
+        <div class="editor-actions-bar">
+          <button id="shiftUpBtn" class="btn btn-secondary btn-sm" title="Shift Up">↑</button>
+          <button id="shiftDownBtn" class="btn btn-secondary btn-sm" title="Shift Down">↓</button>
+          <button id="shiftLeftBtn" class="btn btn-secondary btn-sm" title="Shift Left">←</button>
+          <button id="shiftRightBtn" class="btn btn-secondary btn-sm" title="Shift Right">→</button>
+          <button id="invertBtn" class="btn btn-secondary btn-sm" title="Invert blocks">Invert</button>
+          <button id="flipHBtn" class="btn btn-secondary btn-sm" title="Flip Horizontal">Flip H</button>
+          <button id="flipVBtn" class="btn btn-secondary btn-sm" title="Flip Vertical">Flip V</button>
+        </div>
+
+        <!-- Grid Canvas & Side Preview -->
+        <div class="grid-canvas-section">
+          <div class="grid-wrapper" id="gridWrapper">
+            <!-- Interactive cell grid -->
+            <div class="pixel-grid" id="pixelGrid">
+              <!-- cells generated dynamically for height H -->
+            </div>
+          </div>
+
+          <!-- Sidebar with character mini preview -->
+          <div class="grid-sidebar">
+            <div class="mini-preview-card">
+              <span style="font-size: 11px; color: var(--text-muted);">Current Glyph</span>
+              <span class="char-big" id="miniCharLabel">A</span>
+              <div class="mini-preview-text" id="miniPreviewText"></div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-dim); text-align: center;">
+              <p><strong>Click & Drag</strong> to paint</p>
+              <p><strong>Right-Click</strong> to erase</p>
+              <p>Keys 1-5 to switch brush</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="font-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
