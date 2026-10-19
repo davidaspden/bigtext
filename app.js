@@ -264,8 +264,6 @@
     canvasCoordBadge: document.getElementById('canvasCoordBadge'),
     canvasWidthInput: document.getElementById('canvasWidthInput'),
     canvasHeightInput: document.getElementById('canvasHeightInput'),
-    canvasCellSizeRange: document.getElementById('canvasCellSizeRange'),
-    canvasCellSizeVal: document.getElementById('canvasCellSizeVal'),
     canvasPixelGrid: document.getElementById('canvasPixelGrid'),
     canvasScrollContainer: document.getElementById('canvasScrollContainer'),
     canvasLoadBannerBtn: document.getElementById('canvasLoadBannerBtn'),
@@ -935,7 +933,6 @@
   const canvasState = {
     width: 65,
     height: 5,
-    cellSize: 16,
     activeBrush: '█',
     rows: [],
     isMouseDown: false,
@@ -951,8 +948,10 @@
   function buildCanvasGridUI() {
     if (!el.canvasPixelGrid) return;
     el.canvasPixelGrid.innerHTML = '';
-    el.canvasPixelGrid.style.setProperty('--canvas-cell-size', `${canvasState.cellSize}px`);
-    el.canvasPixelGrid.style.gridTemplateColumns = `repeat(${canvasState.width}, var(--canvas-cell-size, 16px))`;
+    const W = canvasState.width;
+    const gapPx = 1;
+    el.canvasPixelGrid.style.setProperty('--canvas-cols', String(W));
+    el.canvasPixelGrid.style.gridTemplateColumns = `repeat(${W}, calc((100% - ${(W - 1) * gapPx}px) / ${W}))`;
     
     if (el.canvasDimsBadge) {
       el.canvasDimsBadge.textContent = `${canvasState.width} × ${canvasState.height} Grid`;
@@ -1444,15 +1443,6 @@
     if (el.canvasHeightInput) {
       el.canvasHeightInput.addEventListener('change', (e) => {
         resizeCanvas(canvasState.width, e.target.value);
-      });
-    }
-    if (el.canvasCellSizeRange) {
-      el.canvasCellSizeRange.addEventListener('input', (e) => {
-        canvasState.cellSize = parseInt(e.target.value, 10);
-        if (el.canvasCellSizeVal) el.canvasCellSizeVal.textContent = `${canvasState.cellSize}px`;
-        if (el.canvasPixelGrid) {
-          el.canvasPixelGrid.style.setProperty('--canvas-cell-size', `${canvasState.cellSize}px`);
-        }
       });
     }
 
