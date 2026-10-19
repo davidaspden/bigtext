@@ -26,6 +26,7 @@
 
   const state = {
     glyphHeight: 5, // 5 to 15 characters tall
+    glyphWidth: 4, // 1 to 12 blocks wide (base default is 4)
     activeChar: 'A',
     activeBrush: '█',
     activeTab: 'required',
@@ -50,61 +51,115 @@
   };
 
   // -------------------------------------------------------------
-  // DYNAMIC MULTI-HEIGHT GLYPH ENGINE (5 to 15)
+  // DYNAMIC MULTI-HEIGHT & MULTI-WIDTH GLYPH ENGINE
   // -------------------------------------------------------------
-  function scaleGlyph(srcGlyph, targetHeight) {
-    const srcH = srcGlyph.rows.length;
-    const W = srcGlyph.width;
-    if (srcH === targetHeight) return { width: W, rows: [...srcGlyph.rows] };
-    const newRows = [];
-    for (let r = 0; r < targetHeight; r++) {
-      const srcY = ((r + 0.5) / targetHeight) * srcH;
-      const srcIdx = Math.min(srcH - 1, Math.max(0, Math.floor(srcY)));
-      newRows.push(srcGlyph.rows[srcIdx]);
+  function scaleRowHorizontally(rowStr, srcW, targetW) {
+    if (srcW === targetW) return rowStr.padEnd(targetW, ' ').substring(0, targetW);
+    const padded = rowStr.padEnd(srcW, ' ');
+    const out = new Array(targetW).fill(' ');
+    const sampledSrc = new Array(srcW).fill(false);
+
+    for (let c = 0; c < targetW; c++) {
+      const srcX = Math.min(srcW - 1, Math.max(0, Math.floor(((c + 0.5) / targetW) * srcW)));
+      out[c] = padded[srcX];
+      sampledSrc[srcX] = true;
     }
-    return { width: W, rows: newRows };
+
+    // When downscaling (targetW < srcW), preserve any unsampled isolated stroke (e.g. center stem of T, M, I)
+    if (targetW < srcW) {
+      for (let s = 0; s < srcW; s++) {
+        if (!sampledSrc[s] && padded[s] !== ' ') {
+          const leftEmpty = (s === 0 || padded[s - 1] === ' ');
+          const rightEmpty = (s === srcW - 1 || padded[s + 1] === ' ');
+          if (leftEmpty && rightEmpty) {
+            const destIdx = Math.min(targetW - 1, Math.max(0, Math.floor((s / srcW) * targetW)));
+            out[destIdx] = padded[s];
+          }
+        }
+      }
+    }
+    return out.join('');
   }
 
-  function getBaseGlyphForHeight(ch, H) {
-    if (H === 5 && DEFAULT_FONT_5[ch]) {
+  function scaleGlyph(srcGlyph, targetHeight, targetWidth) {
+    const srcH = srcGlyph.rows.length;
+    const srcW = srcGlyph.width;
+    const finalW = (typeof targetWidth === 'number' && targetWidth >= 1) ? targetWidth : srcW;
+
+    const vRows = [];
+    if (srcH === targetHeight) {
+      vRows.push(...srcGlyph.rows);
+    } else {
+      for (let r = 0; r < targetHeight; r++) {
+        const srcY = ((r + 0.5) / targetHeight) * srcH;
+        const srcIdx = Math.min(srcH - 1, Math.max(0, Math.floor(srcY)));
+        vRows.push(srcGlyph.rows[srcIdx]);
+      }
+    }
+
+    if (finalW === srcW) {
+      return { width: srcW, rows: vRows };
+    }
+    const scaledRows = vRows.map(row => scaleRowHorizontally(row, srcW, finalW));
+    return { width: finalW, rows: scaledRows };
+  }
+
+  function getTargetCharWidth(srcGlyph, globalW) {
+    const srcW = srcGlyph.width;
+    // Naturally narrow characters ('!', '.', ':', ';', "'", 'i', 'l', ',') scale proportionally
+    if (srcW < 3) {
+      if (globalW <= 2) return Math.max(1, Math.min(srcW, globalW));
+      return Math.max(1, Math.round(srcW * (globalW / 4)));
+    }
+    return globalW;
+  }
+
+  function getBaseGlyphForHeight(ch, H, W = state.glyphWidth) {
+    let baseFontGlyph = null;
+    if (H === 15 && DEFAULT_FONT_15[ch]) {
+      baseFontGlyph = DEFAULT_FONT_15[ch];
+    } else if (H >= 10 && DEFAULT_FONT_15[ch]) {
+      baseFontGlyph = DEFAULT_FONT_15[ch];
+    } else if (DEFAULT_FONT_5[ch]) {
+      baseFontGlyph = DEFAULT_FONT_5[ch];
+    }
+
+    if (!baseFontGlyph) {
+      return { width: W, rows: Array(H).fill(' '.repeat(W)) };
+    }
+
+    // At default width 4 and native height 5, keep original native glyph widths (e.g. M/W=5, A-Z=4)
+    if (H === 5 && W === 4 && DEFAULT_FONT_5[ch]) {
       return { width: DEFAULT_FONT_5[ch].width, rows: [...DEFAULT_FONT_5[ch].rows] };
     }
-    if (H === 15 && DEFAULT_FONT_15[ch]) {
-      return { width: DEFAULT_FONT_15[ch].width, rows: [...DEFAULT_FONT_15[ch].rows] };
-    }
-    // For heights 6 to 9, scale from 5-height font
-    if (H <= 9 && DEFAULT_FONT_5[ch]) {
-      return scaleGlyph(DEFAULT_FONT_5[ch], H);
-    }
-    // For heights 10 to 14, scale from 15-height font
-    if (H >= 10 && DEFAULT_FONT_15[ch]) {
-      return scaleGlyph(DEFAULT_FONT_15[ch], H);
-    }
-    if (DEFAULT_FONT_5[ch]) {
-      return scaleGlyph(DEFAULT_FONT_5[ch], H);
-    }
-    return { width: 4, rows: Array(H).fill('    ') };
+
+    const targetW = getTargetCharWidth(baseFontGlyph, W);
+    return scaleGlyph(baseFontGlyph, H, targetW);
+  }
+
+  function getDimKey() {
+    return `${state.glyphHeight}x${state.glyphWidth}`;
   }
 
   function getActiveGlyph(ch) {
     const H = state.glyphHeight;
-    if (!customGlyphsByHeight[H]) {
-      customGlyphsByHeight[H] = {};
+    const W = state.glyphWidth;
+    const dimKey = getDimKey();
+    if (customGlyphsByHeight[dimKey] && customGlyphsByHeight[dimKey][ch]) {
+      return customGlyphsByHeight[dimKey][ch];
     }
-    if (customGlyphsByHeight[H][ch]) {
+    if (W === 4 && customGlyphsByHeight[H] && customGlyphsByHeight[H][ch]) {
       return customGlyphsByHeight[H][ch];
     }
-    // Fallback to base calculated glyph
-    const base = getBaseGlyphForHeight(ch, H);
-    return base;
+    return getBaseGlyphForHeight(ch, H, W);
   }
 
   function saveCustomGlyph(ch, glyph) {
-    const H = state.glyphHeight;
-    if (!customGlyphsByHeight[H]) {
-      customGlyphsByHeight[H] = {};
+    const dimKey = getDimKey();
+    if (!customGlyphsByHeight[dimKey]) {
+      customGlyphsByHeight[dimKey] = {};
     }
-    customGlyphsByHeight[H][ch] = {
+    customGlyphsByHeight[dimKey][ch] = {
       width: glyph.width,
       rows: [...glyph.rows]
     };
@@ -151,9 +206,11 @@
     padToLimitCheck: document.getElementById('padToLimitCheck'),
     invertBlocksCheck: document.getElementById('invertBlocksCheck'),
     
-    // Controls: Height 5-15, Line Gap, Letter Spacing, Top Margin
+    // Controls: Height 5-15, Width 1-12, Line Gap, Letter Spacing, Top Margin
     glyphHeightRange: document.getElementById('glyphHeightRange'),
     glyphHeightVal: document.getElementById('glyphHeightVal'),
+    glyphWidthRange: document.getElementById('glyphWidthRange'),
+    glyphWidthVal: document.getElementById('glyphWidthVal'),
     lineGapRange: document.getElementById('lineGapRange'),
     lineGapVal: document.getElementById('lineGapVal'),
     letterSpacingRange: document.getElementById('letterSpacingRange'),
@@ -186,6 +243,7 @@
     resetCharBtn: document.getElementById('resetCharBtn'),
     charGridPicker: document.getElementById('charGridPicker'),
     charWidthSelect: document.getElementById('charWidthSelect'),
+    charWidthVal: document.getElementById('charWidthVal'),
     pixelGrid: document.getElementById('pixelGrid'),
     gridWrapper: document.getElementById('gridWrapper'),
     miniCharLabel: document.getElementById('miniCharLabel'),
@@ -284,7 +342,11 @@
     const displayChar = ch === ' ' ? 'Space' : `'${ch}'`;
     el.currentCharBadge.textContent = `${displayChar} (${glyph.width}×${H})`;
     el.miniCharLabel.textContent = ch === ' ' ? '␣' : ch;
-    el.charWidthSelect.value = String(Math.min(5, Math.max(1, glyph.width)));
+    const clampedW = Math.min(12, Math.max(1, glyph.width));
+    el.charWidthSelect.value = String(clampedW);
+    if (el.charWidthVal) {
+      el.charWidthVal.textContent = `${clampedW} col${clampedW === 1 ? '' : 's'}`;
+    }
 
     buildGridUI(glyph);
     updateMiniPreview(glyph);
@@ -327,7 +389,7 @@
   }
 
   function saveUndo(ch) {
-    const key = `${state.glyphHeight}_${ch}`;
+    const key = `${getDimKey()}_${ch}`;
     if (!charUndoStack[key]) charUndoStack[key] = [];
     const glyph = getActiveGlyph(ch);
     charUndoStack[key].push({
@@ -402,11 +464,12 @@
   function resetCurrentCharacter() {
     saveUndo(state.activeChar);
     const H = state.glyphHeight;
-    const base = getBaseGlyphForHeight(state.activeChar, H);
+    const W = state.glyphWidth;
+    const base = getBaseGlyphForHeight(state.activeChar, H, W);
     saveCustomGlyph(state.activeChar, base);
     loadCharIntoEditor(state.activeChar);
     updateGenerator();
-    showToast(`Reset '${state.activeChar}' (H=${H}) to default`, 'success');
+    showToast(`Reset '${state.activeChar}' (${W}×${H}) to default`, 'success');
   }
 
   function shiftGrid(dr, dc) {
@@ -477,7 +540,7 @@
 
   function changeCharWidth(newWidth) {
     newWidth = parseInt(newWidth, 10);
-    if (newWidth < 1 || newWidth > 7) return;
+    if (isNaN(newWidth) || newWidth < 1 || newWidth > 12) return;
     saveUndo(state.activeChar);
     const glyph = getActiveGlyph(state.activeChar);
     glyph.width = newWidth;
@@ -487,6 +550,7 @@
     });
     saveCustomGlyph(state.activeChar, glyph);
     loadCharIntoEditor(state.activeChar);
+    setupCharPicker(state.activeTab);
     updateGenerator();
   }
 
@@ -837,14 +901,18 @@
 
   function resetAllFonts() {
     const H = state.glyphHeight;
-    if (confirm(`Reset all customized characters at height ${H} to defaults?`)) {
-      if (customGlyphsByHeight[H]) {
+    const W = state.glyphWidth;
+    const dimKey = getDimKey();
+    if (confirm(`Reset all customized characters at size ${W}×${H} to defaults?`)) {
+      delete customGlyphsByHeight[dimKey];
+      if (W === 4 && customGlyphsByHeight[H]) {
         delete customGlyphsByHeight[H];
-        localStorage.setItem(STORAGE_KEY_CUSTOM_GLYPHS, JSON.stringify(customGlyphsByHeight));
       }
+      localStorage.setItem(STORAGE_KEY_CUSTOM_GLYPHS, JSON.stringify(customGlyphsByHeight));
+      setupCharPicker(state.activeTab);
       loadCharIntoEditor(state.activeChar);
       updateGenerator();
-      showToast(`Reset characters at height ${H} to defaults!`, 'success');
+      showToast(`Reset characters at ${W}×${H} to defaults!`, 'success');
     }
   }
 
@@ -1145,11 +1213,25 @@
     el.glyphHeightRange.addEventListener('input', (e) => {
       state.glyphHeight = parseInt(e.target.value, 10);
       el.glyphHeightVal.textContent = `${state.glyphHeight} lines`;
-      el.fontModeHeaderPill.textContent = `HEIGHT ${state.glyphHeight} MATRIX`;
+      el.fontModeHeaderPill.textContent = `${state.glyphWidth}W × ${state.glyphHeight}H MATRIX`;
       setupCharPicker(state.activeTab);
       loadCharIntoEditor(state.activeChar);
       updateGenerator();
     });
+
+    // 1b. Character Width slider (1 to 12 blocks)
+    if (el.glyphWidthRange) {
+      el.glyphWidthRange.addEventListener('input', (e) => {
+        state.glyphWidth = parseInt(e.target.value, 10);
+        if (el.glyphWidthVal) {
+          el.glyphWidthVal.textContent = `${state.glyphWidth} block${state.glyphWidth === 1 ? '' : 's'}`;
+        }
+        el.fontModeHeaderPill.textContent = `${state.glyphWidth}W × ${state.glyphHeight}H MATRIX`;
+        setupCharPicker(state.activeTab);
+        loadCharIntoEditor(state.activeChar);
+        updateGenerator();
+      });
+    }
 
     // 2. Line Gap slider (0 to 6 rows)
     el.lineGapRange.addEventListener('input', (e) => {
@@ -1291,8 +1373,8 @@
     el.redrawCharBtn.addEventListener('click', redrawCharacter);
     el.resetCharBtn.addEventListener('click', resetCurrentCharacter);
 
-    // Width selector
-    el.charWidthSelect.addEventListener('change', (e) => {
+    // Per-Character Width slider (1 to 12 cols)
+    el.charWidthSelect.addEventListener('input', (e) => {
       changeCharWidth(e.target.value);
     });
 

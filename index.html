@@ -119,6 +119,15 @@
           <input type="range" id="glyphHeightRange" min="5" max="15" value="5" step="1">
         </div>
 
+        <!-- 1b. Character Width (1 to 12 blocks wide!) -->
+        <div class="control-item">
+          <div class="control-item-header">
+            <span title="Character width in blocks across (scales glyphs horizontally)">Character Width:</span>
+            <span class="val" id="glyphWidthVal">4 blocks</span>
+          </div>
+          <input type="range" id="glyphWidthRange" min="1" max="12" value="4" step="1">
+        </div>
+
         <!-- 2. Data Line Gap: Block rows inserted in text -->
         <div class="control-item">
           <div class="control-item-header">
@@ -375,15 +384,10 @@
           </div>
 
           <div style="display: flex; align-items: center; gap: 6px;">
-            <label style="font-size: 11px; color: var(--text-muted);" title="Width in blocks across (1 to 5)">
-              Width:
-              <select id="charWidthSelect" class="theme-select">
-                <option value="1">1 col</option>
-                <option value="2">2 cols</option>
-                <option value="3">3 cols</option>
-                <option value="4" selected>4 cols</option>
-                <option value="5">5 cols (Max)</option>
-              </select>
+            <label style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;" title="Width of current character in blocks across (1 to 12)">
+              <span>Width:</span>
+              <input type="range" id="charWidthSelect" min="1" max="12" value="4" step="1" style="width: 80px;">
+              <span id="charWidthVal" style="color: var(--accent-cyan); font-family: var(--font-mono); font-weight: 700; min-width: 44px;">4 cols</span>
             </label>
           </div>
         </div>
